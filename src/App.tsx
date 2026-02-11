@@ -5,7 +5,7 @@ import { Settings } from 'lucide-react';
 
 function App() {
   return (
-    <BrowserRouter basename="/impressao">
+    <BrowserRouter>
       <div className="min-h-screen relative">
         {/* Floating Admin Button */}
         {/* Floating Admin Button */}
