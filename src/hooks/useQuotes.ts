@@ -14,6 +14,24 @@ export interface Quote {
 
 export const useQuotes = () => {
     const [loading, setLoading] = useState(false);
+    const [quotes, setQuotes] = useState<Quote[]>([]);
+
+    const fetchQuotes = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('quotes')
+                .select('*')
+                .order('sequence_id', { ascending: false });
+
+            if (error) throw error;
+            setQuotes(data || []);
+        } catch (error) {
+            console.error('Error fetching quotes:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const saveQuote = async (
         customer: { name: string; contact: string },
@@ -48,8 +66,29 @@ export const useQuotes = () => {
         }
     };
 
+    const deleteQuote = async (id: string) => {
+        try {
+            const { error } = await supabase
+                .from('quotes')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setQuotes(prev => prev.filter(q => q.id !== id));
+            return true;
+        } catch (error) {
+            console.error('Error deleting quote:', error);
+            alert('Erro ao excluir orçamento');
+            return false;
+        }
+    };
+
     return {
+        quotes,
+        loading,
+        fetchQuotes,
         saveQuote,
-        loading
+        deleteQuote
     };
 };

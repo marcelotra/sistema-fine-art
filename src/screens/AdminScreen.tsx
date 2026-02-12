@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useProducts } from '../hooks/useProducts';
 import { useCompanySettings } from '../hooks/useCompanySettings';
+import { useQuotes } from '../hooks/useQuotes';
 import type { Material } from '../types';
-import { Edit2, Plus, Trash2, LogIn, Save, Building, Package } from 'lucide-react';
+import { Edit2, Plus, Trash2, LogIn, Save, Building, Package, FileText } from 'lucide-react';
 
 const AdminScreen: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
     const { products, loading: loadingProducts, addProduct, updateProduct, deleteProduct } = useProducts();
     const { settings, loading: loadingSettings, updateSettings } = useCompanySettings();
+    const { quotes, fetchQuotes, deleteQuote } = useQuotes();
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'COMPANY'>('PRODUCTS');
+    const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'COMPANY' | 'QUOTES'>('PRODUCTS');
     const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form States
@@ -23,6 +25,12 @@ const AdminScreen: React.FC = () => {
             setCompanyForm(settings);
         }
     }, [settings]);
+
+    useEffect(() => {
+        if (activeTab === 'QUOTES') {
+            fetchQuotes();
+        }
+    }, [activeTab]);
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,6 +82,13 @@ const AdminScreen: React.FC = () => {
         updateSettings(companyForm);
     };
 
+    // --- Quote Handlers ---
+    const handleDeleteQuote = async (id: string) => {
+        if (confirm('Deseja excluir este orçamento permanentemente?')) {
+            await deleteQuote(id);
+        }
+    };
+
     if (!isAuthenticated) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-100">
@@ -105,7 +120,7 @@ const AdminScreen: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 p-8">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-slate-800">Painel Administrativo</h1>
 
@@ -122,6 +137,12 @@ const AdminScreen: React.FC = () => {
                             className={`px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-all ${activeTab === 'COMPANY' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                         >
                             <Building size={18} /> Empresa
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('QUOTES')}
+                            className={`px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-all ${activeTab === 'QUOTES' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            <FileText size={18} /> Orçamentos
                         </button>
                     </div>
                 </div>
@@ -270,11 +291,74 @@ const AdminScreen: React.FC = () => {
                                     onChange={e => setCompanyForm({ ...companyForm, website: e.target.value })}
                                 />
                             </div>
+                            <div className="col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Logo URL</label>
+                                <input className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={companyForm.logo_url || ''}
+                                    onChange={e => setCompanyForm({ ...companyForm, logo_url: e.target.value })}
+                                    placeholder="https://..."
+                                />
+                                {companyForm.logo_url && (
+                                    <div className="mt-2 text-sm text-slate-500 flex items-center gap-2">
+                                        <img src={companyForm.logo_url} className="h-8 max-w-xs object-contain" alt="Preview" /> Preview
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="mt-8 flex justify-end">
                             <button onClick={handleSaveCompany} className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 hover:bg-slate-800 shadow-lg">
                                 <Save size={20} /> Salvar Alterações
                             </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- QUOTES TAB --- */}
+                {activeTab === 'QUOTES' && (
+                    <div className="animate-fadeIn">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-100 border-b">
+                                    <tr>
+                                        <th className="p-4 font-semibold">#</th>
+                                        <th className="p-4 font-semibold">Cliente</th>
+                                        <th className="p-4 font-semibold">Contato</th>
+                                        <th className="p-4 font-semibold">Data</th>
+                                        <th className="p-4 font-semibold">Total</th>
+                                        <th className="p-4 font-semibold text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {quotes.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="p-8 text-center text-slate-500">
+                                                Nenhum orçamento encontrado.
+                                            </td>
+                                        </tr>
+                                    ) : quotes.map(q => (
+                                        <tr key={q.id} className="hover:bg-slate-50">
+                                            <td className="p-4 font-bold text-indigo-600">#{q.sequence_id}</td>
+                                            <td className="p-4 font-medium">{q.customer_name}</td>
+                                            <td className="p-4 text-sm text-slate-600">{q.customer_contact}</td>
+                                            <td className="p-4 text-sm text-slate-600">
+                                                {new Date(q.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="p-4 font-mono font-bold text-slate-800">
+                                                R$ {q.total_amount.toFixed(2)}
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <button
+                                                    onClick={() => handleDeleteQuote(q.id)}
+                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                    title="Excluir Orçamento"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}
