@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useProducts } from '../hooks/useProducts';
 import { useCompanySettings } from '../hooks/useCompanySettings';
-import { useQuotes } from '../hooks/useQuotes';
+import { useQuotes, type Quote } from '../hooks/useQuotes';
 import type { Material } from '../types';
-import { Edit2, Plus, Trash2, LogIn, Save, Building, Package, FileText } from 'lucide-react';
+import { Edit2, Plus, Trash2, LogIn, Save, Building, Package, FileText, Eye, X } from 'lucide-react';
 
 const AdminScreen: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -15,6 +15,7 @@ const AdminScreen: React.FC = () => {
     // UI State
     const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'COMPANY' | 'QUOTES'>('PRODUCTS');
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
 
     // Form States
     const [productForm, setProductForm] = useState<Partial<Material>>({});
@@ -316,6 +317,84 @@ const AdminScreen: React.FC = () => {
                 {/* --- QUOTES TAB --- */}
                 {activeTab === 'QUOTES' && (
                     <div className="animate-fadeIn">
+                        {/* VIEW QUOTE MODAL */}
+                        {selectedQuote && (
+                            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fadeIn">
+                                <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                                    {/* Header */}
+                                    <div className="p-6 border-b flex justify-between items-center bg-slate-50 sticky top-0 z-10">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-800">Orçamento #{selectedQuote.sequence_id}</h2>
+                                            <p className="text-sm text-slate-500">{new Date(selectedQuote.created_at).toLocaleString()}</p>
+                                        </div>
+                                        <button onClick={() => setSelectedQuote(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors">
+                                            <X size={24} />
+                                        </button>
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="p-6 space-y-6">
+                                        {/* Customer */}
+                                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Cliente</label>
+                                                <div className="font-bold text-lg text-slate-800">{selectedQuote.customer_name}</div>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Contato</label>
+                                                <div className="font-medium text-lg text-slate-700">{selectedQuote.customer_contact}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Items */}
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">Itens do Pedido</label>
+                                            <div className="border rounded-lg overflow-hidden shadow-sm">
+                                                <table className="w-full text-sm">
+                                                    <thead className="bg-slate-100 border-b">
+                                                        <tr>
+                                                            <th className="p-3 text-left font-semibold text-slate-600">Descrição</th>
+                                                            <th className="p-3 text-right font-semibold text-slate-600">Valor</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y">
+                                                        {selectedQuote.items.map((item: any, idx: number) => (
+                                                            <tr key={idx} className="bg-white">
+                                                                <td className="p-3">
+                                                                    <div className="font-bold text-slate-800">{item.materialName || 'Item'}</div>
+                                                                    <div className="text-slate-500 text-xs mt-1">
+                                                                        {item.width}cm x {item.height}cm • Qtd: {item.quantity}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3 text-right font-mono text-slate-700">
+                                                                    R$ {item.totalPrice?.toFixed(2)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        {/* Total */}
+                                        <div className="flex justify-end border-t border-slate-200 pt-6">
+                                            <div className="text-right">
+                                                <div className="text-sm text-slate-500 mb-1">Total Geral</div>
+                                                <div className="text-3xl font-bold text-indigo-600">R$ {selectedQuote.total_amount.toFixed(2)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="p-6 bg-slate-50 border-t flex justify-end gap-3 sticky bottom-0">
+                                        <button onClick={() => setSelectedQuote(null)} className="bg-white border border-slate-300 text-slate-700 px-6 py-2 rounded-lg font-bold hover:bg-slate-50 transition-colors">
+                                            Fechar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             <table className="w-full text-left">
                                 <thead className="bg-slate-100 border-b">
@@ -336,7 +415,7 @@ const AdminScreen: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : quotes.map(q => (
-                                        <tr key={q.id} className="hover:bg-slate-50">
+                                        <tr key={q.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="p-4 font-bold text-indigo-600">#{q.sequence_id}</td>
                                             <td className="p-4 font-medium">{q.customer_name}</td>
                                             <td className="p-4 text-sm text-slate-600">{q.customer_contact}</td>
@@ -346,7 +425,14 @@ const AdminScreen: React.FC = () => {
                                             <td className="p-4 font-mono font-bold text-slate-800">
                                                 R$ {q.total_amount.toFixed(2)}
                                             </td>
-                                            <td className="p-4 text-right">
+                                            <td className="p-4 text-right flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => setSelectedQuote(q)}
+                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                    title="Visualizar Orçamento"
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
                                                 <button
                                                     onClick={() => handleDeleteQuote(q.id)}
                                                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
