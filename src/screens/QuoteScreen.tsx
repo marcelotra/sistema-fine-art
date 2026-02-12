@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Check, Image as ImageIcon, ShoppingCart, Plus, Trash2 } from 'lucide-react';
+import { Check, Image as ImageIcon, ShoppingCart, Plus, Trash2, Printer } from 'lucide-react';
 import { useProducts } from '../hooks/useProducts';
+import { useCompanySettings } from '../hooks/useCompanySettings';
+import { useQuotes } from '../hooks/useQuotes';
 
 // Helper to format currency
 const formatMoney = (val: number) => `R$ ${val.toFixed(2)}`;
@@ -22,9 +24,12 @@ interface CartItem {
 
 const QuoteScreen: React.FC = () => {
     const { products: MATERIALS, loading } = useProducts();
+    const { settings } = useCompanySettings();
+    const { saveQuote, loading: savingQuote } = useQuotes();
 
     // --- Global Cart State ---
     const [cart, setCart] = useState<CartItem[]>([]);
+    const [quoteNumber, setQuoteNumber] = useState<number | null>(null);
 
     // --- Current Item Form State ---
     const [width, setWidth] = useState<number | string>('');
@@ -136,7 +141,6 @@ const QuoteScreen: React.FC = () => {
     }, [width, height, margin, selectedMaterial, quantity, isValidDimensions]);
 
     // Add current item to cart
-    // Add current item to cart
     const handleAddToCart = () => {
         if (!currentItemQuote || !selectedMaterial) return;
 
@@ -180,15 +184,20 @@ const QuoteScreen: React.FC = () => {
     const discount = (paymentMethod === 'PIX' || paymentMethod === 'CASH') ? 0.15 : 0;
     const finalTotal = cartTotal * (1 - discount);
 
-    const handlePrint = () => {
-        window.print();
+    const handleFinishQuote = async () => {
+        if (!customer.name) return alert('Preencha o nome do cliente');
+
+        const quote = await saveQuote(
+            { name: customer.name, contact: customer.phone },
+            finalTotal,
+            cart
+        );
+
+        if (quote) {
+            setQuoteNumber(quote.sequence_id);
+            setTimeout(() => window.print(), 500); // Wait for UI update
+        }
     };
-
-    const handleExportPDF = () => {
-        window.print();
-    };
-
-
 
     // Group materials by category
     const materialsByCategory = useMemo(() => {
@@ -210,7 +219,51 @@ const QuoteScreen: React.FC = () => {
     if (view === 'CHECKOUT') {
         return (
             <div className="min-h-screen bg-slate-50 p-4 md:p-8 animate-fadeIn">
-                <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+                <style>{`
+                    @media print {
+                        body * { visibility: hidden; }
+                        #printable-content, #printable-content * { visibility: visible; }
+                        #printable-content { position: absolute; left: 0; top: 0; width: 100%; }
+                        @page { size: auto; margin: 0mm; }
+                    }
+                `}</style>
+
+                <div id="printable-content" className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 print:shadow-none print:border-none">
+
+                    {/* Header for Print (Company Info) */}
+                    <div className="hidden print:block p-8 border-b border-slate-200">
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-4">
+                                {/* Fallback logo if none */}
+                                {settings?.logo_url ? (
+                                    <img src={settings.logo_url} alt="Logo" className="h-16 w-auto object-contain" />
+                                ) : (
+                                    <div className="bg-slate-900 text-white p-3 rounded-lg">
+                                        <ImageIcon size={32} />
+                                    </div>
+                                )}
+                                <div>
+                                    <h1 className="text-2xl font-bold text-slate-900">{settings?.name || 'Panorama Molduras'}</h1>
+                                    <div className="text-sm text-slate-600 space-y-0.5">
+                                        {settings?.address && <p>{settings.address}</p>}
+                                        <p>
+                                            {settings?.phone && <span>Tel: {settings.phone}</span>}
+                                            {settings?.email && <span className="mx-2">• {settings.email}</span>}
+                                        </p>
+                                        {settings?.website && <p className="text-indigo-600">{settings.website}</p>}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">Orçamento</h2>
+                                {quoteNumber && (
+                                    <div className="text-3xl font-bold text-slate-900">#{quoteNumber}</div>
+                                )}
+                                <p className="text-sm text-slate-500 mt-1">{new Date().toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="bg-slate-900 text-white p-6 flex justify-between items-center print:hidden">
                         <div>
                             <h1 className="text-2xl font-bold">Resumo do Pedido</h1>
@@ -221,7 +274,7 @@ const QuoteScreen: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-12 print:gap-8">
                         {/* Column 1: Customer & Payment */}
                         <div className="space-y-8">
                             <section className="print:hidden">
@@ -289,10 +342,16 @@ const QuoteScreen: React.FC = () => {
 
                             {/* Visible only on print */}
                             <section className="hidden print:block">
-                                <h2 className="text-xl font-bold mb-4">Dados do Cliente</h2>
-                                <p><strong>Nome:</strong> {customer.name}</p>
-                                <p><strong>Email:</strong> {customer.email}</p>
-                                <p><strong>Telefone:</strong> {customer.phone}</p>
+                                <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 border-b pb-2">Cliente</h2>
+                                    <div className="space-y-2">
+                                        <p className="text-xl font-bold text-slate-900">{customer.name || 'Consumidor Final'}</p>
+                                        <div className="flex gap-6 text-sm text-slate-600">
+                                            {customer.email && <p>✉ {customer.email}</p>}
+                                            {customer.phone && <p>📞 {customer.phone}</p>}
+                                        </div>
+                                    </div>
+                                </div>
                             </section>
                         </div>
 
@@ -332,16 +391,26 @@ const QuoteScreen: React.FC = () => {
                                 )}
                             </div>
 
-                            <div className="space-y-3 print:hidden">
+                            {/* Print Footer / Notes */}
+                            <div className="hidden print:block mt-8 pt-8 border-t border-slate-200 text-center text-xs text-slate-400">
+                                <p>Este documento é um orçamento e tem validade de 7 dias.</p>
+                                <p className="mt-1">Gerado em {new Date().toLocaleString()}</p>
+                            </div>
 
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handlePrint} className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
-                                        Imprimir
-                                    </button>
-                                    <button onClick={handleExportPDF} className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
-                                        Baixar PDF
-                                    </button>
-                                </div>
+                            <div className="space-y-3 print:hidden">
+                                <button
+                                    onClick={handleFinishQuote}
+                                    disabled={savingQuote}
+                                    className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                                >
+                                    {savingQuote ? (
+                                        <span className="animate-pulse">Salvando...</span>
+                                    ) : (
+                                        <>
+                                            <Printer size={20} /> Finalizar e Imprimir
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -520,13 +589,6 @@ const QuoteScreen: React.FC = () => {
                                             {(currentItemQuote.finalW * 100).toFixed(1)} x {(currentItemQuote.finalH * 100).toFixed(1)} cm
                                         </span>
                                     </div>
-                                    {/* Optimization details hidden as per request */}
-                                    {/* {currentItemQuote.details && (
-                                        <div className="flex justify-between text-sm bg-indigo-50 p-2 rounded-lg border border-indigo-100">
-                                            <span className="text-indigo-800 font-medium">Otimização</span>
-                                            <span className="font-bold text-indigo-700">{currentItemQuote.details}</span>
-                                        </div>
-                                    )} */}
                                     <div className="pt-3 border-t border-slate-100 flex justify-between items-end">
                                         <span className="text-xs text-slate-500">{quantity}x {formatMoney(currentItemQuote.unitPrice)}</span>
                                         <span className="text-2xl font-bold text-indigo-600">{formatMoney(currentItemQuote.total)}</span>
