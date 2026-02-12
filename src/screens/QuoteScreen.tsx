@@ -136,8 +136,14 @@ const QuoteScreen: React.FC = () => {
     }, [width, height, margin, selectedMaterial, quantity, isValidDimensions]);
 
     // Add current item to cart
+    // Add current item to cart
     const handleAddToCart = () => {
         if (!currentItemQuote || !selectedMaterial) return;
+
+        if (currentItemQuote.details === "Tamanho excede bobinas padrão") {
+            alert("As medidas informadas excedem o tamanho máximo das bobinas de impressão disponíveis para este papel.");
+            return;
+        }
 
         const newItem: CartItem = {
             id: Math.random().toString(36).substr(2, 9),
@@ -182,18 +188,7 @@ const QuoteScreen: React.FC = () => {
         window.print();
     };
 
-    const handleSendEmail = () => {
-        const subject = `Pedido Fine Art - ${customer.name}`;
-        const body = `Olá, gostaria de finalizar o seguinte pedido:\n\n` +
-            `Cliente: ${customer.name}\n` +
-            `Email: ${customer.email}\n` +
-            `Telefone: ${customer.phone}\n\n` +
-            `Itens:\n` +
-            cart.map((item, i) => `${i + 1}. ${item.materialName} - ${item.width}x${item.height}cm (${item.quantity}un) - R$ ${item.totalPrice.toFixed(2)}`).join('\n') +
-            `\n\nTotal: R$ ${finalTotal.toFixed(2)} (${paymentMethod === 'PIX' ? 'PIX/Dinheiro (-15%)' : 'Cartão'})\n`;
 
-        window.open(`mailto:contato@molduraspanorama.com.br?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-    };
 
     // Group materials by category
     const materialsByCategory = useMemo(() => {
@@ -338,9 +333,7 @@ const QuoteScreen: React.FC = () => {
                             </div>
 
                             <div className="space-y-3 print:hidden">
-                                <button onClick={handleSendEmail} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
-                                    Enviar Pedido por Email
-                                </button>
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={handlePrint} className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
                                         Imprimir

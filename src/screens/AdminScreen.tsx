@@ -6,7 +6,7 @@ import { Edit2, Plus, Trash2, LogIn, Save } from 'lucide-react';
 const AdminScreen: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
-    const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+    const { products, loading, addProduct, updateProduct, deleteProduct } = useProducts();
     const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form State
@@ -75,6 +75,14 @@ const AdminScreen: React.FC = () => {
                         <LogIn /> Entrar
                     </button>
                 </form>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-slate-500 font-bold animate-pulse">Carregando produtos...</div>
             </div>
         );
     }
